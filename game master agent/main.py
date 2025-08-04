@@ -5,17 +5,17 @@ from agents import Agent, Runner, function_tool, OpenAIChatCompletionsModel
 from openai import AsyncOpenAI
 
 load_dotenv()
-gemini_api_key=os.getenv("GEMINI_API_KEY")
+gemini_api_key = os.getenv("GEMINI_API_KEY")
 if not gemini_api_key:
     raise RuntimeError("Api key not found")
 
-#Client setup
+# Client setup
 client = AsyncOpenAI(
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-         api_key=gemini_api_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    api_key=gemini_api_key,
 )
 
-#tool
+# Tools
 @function_tool
 def roll_dice(sides: int = 6) -> int:
     """
@@ -39,45 +39,61 @@ def generate_event() -> str:
     ]
     return random.choice(events)
 
-
+# Model definition
 model = OpenAIChatCompletionsModel(
     model="gemini-2.0-flash",
     openai_client=client
 )
 
-#agents
-narrator_Agent=Agent(
+# Agents
+narrator_agent = Agent(
     name="Narrator Agent",
-    instructions="You are the Narrator. Describe the adventure story clearly and engagingly. Guide the player through choices and scenes, setting the mood and world details. Hand off to MonsterAgent when combat starts, or to ItemAgent when the player finds items.",
-    model=model
-)
-
-monster_agent=Agent(
-    name="Monstor Agent",
-    instructions="You are the Monster. Control combat encounters during the adventure. Respond to player actions with attacks, defenses, and special moves. Keep combat tense and exciting. After combat, hand back to NarratorAgent",
-    model="model"
-)
-
-item_agent=Agent(
-    name="Item Agent",
-    instructions="You manage the player’s inventory and rewards. Describe items found, their effects, and how they can be used. Handle giving and updating items during the game. Hand off back to NarratorAgent after updates.",
-    model=model
-)
-
-game_master_agent=Agent(
-    name="Game Master Agent",
-    instructions="You are the Game Master. Oversee the adventure by narrating story parts, managing combat, and handling items through your specialist agents: NarratorAgent, MonsterAgent, and ItemAgent. Seamlessly hand off control based on game events to provide a smooth player experience.",
+    instructions=(
+        "You are the Narrator. Describe the adventure story clearly and engagingly. "
+        "Guide the player through choices and scenes, setting the mood and world details. "
+        "Hand off to Monster Agent when combat starts, or to Item Agent when the player finds items."
+    ),
     model=model,
+    tools=[roll_dice, generate_event]
+)
+
+monster_agent = Agent(
+    name="Monster Agent",
+    instructions=(
+        "You are the Monster. Control combat encounters during the adventure. "
+        "Respond to player actions with attacks, defenses, and special moves. Keep combat tense and exciting. "
+        "After combat, hand back to Narrator Agent."
+    ),
+    model=model
+)
+
+item_agent = Agent(
+    name="Item Agent",
+    instructions=(
+        "You manage the player’s inventory and rewards. Describe items found, their effects, and how they can be used. "
+        "Handle giving and updating items during the game. Hand off back to Narrator Agent after updates."
+    ),
+    model=model
+)
+
+game_master_agent = Agent(
+    name="Game Master Agent",
+    instructions=(
+        "You are the Game Master. Oversee the adventure by narrating story parts, managing combat, and handling items "
+        "through your specialist agents: Narrator Agent, Monster Agent, and Item Agent. Seamlessly hand off control based on game events to provide a smooth player experience."
+    ),
+    model=model,
+    tools=[roll_dice, generate_event],
     handoffs=[
-        narrator_Agent,
+        narrator_agent,
         monster_agent,
         item_agent,
     ]
 )
 
-result=Runner.run_sync(
+# Run the conversation synchronously
+result = Runner.run_sync(
     game_master_agent,
-    "I’m ready to begin my fantasy adventure. What is my first challenge?",
+    "My journey begins deep inside a jungle. What happens first? Generate a random event and give me a choice on what to do next",
 )
-
 print(result.final_output)
